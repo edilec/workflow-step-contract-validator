@@ -1,0 +1,17 @@
+{
+  "name": "workflow-step-contract-validator",
+  "version": "0.0.0",
+  "description": "Validate workflow inputs and outputs against versioned step contracts.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edilec/workflow-step-contract-validator"
+  }
+}
