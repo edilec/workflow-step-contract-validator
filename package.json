@@ -1,17 +1,51 @@
 {
   "name": "workflow-step-contract-validator",
-  "version": "0.0.0",
-  "description": "Validate workflow inputs and outputs against versioned step contracts.",
+  "version": "0.1.0",
+  "description": "Validate a workflow DAG statically: typed step inputs and outputs, producer versions, dependencies and cycles, and derive a typed execution contract.",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test"
+    "lint": "node --check src/text.mjs && node --check src/spec.mjs && node --check src/graph.mjs && node --check src/index.mjs && node --check bin/workflow-step-contract-validator.mjs && node --check test/text.test.mjs && node --check test/spec.test.mjs && node --check test/graph.test.mjs && node --check test/validator.test.mjs && node --check test/contract.test.mjs && node --check test/cli.test.mjs && node --check test/confinement.test.mjs && node --check test/severity-table.test.mjs && node --check test/severity-behaviour.test.mjs && node --check test/incompleteness.test.mjs && node --check test/ordering.test.mjs && node --check test/determinism.test.mjs && node --check test/sanitising.test.mjs",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=src/**",
+    "example": "node bin/workflow-step-contract-validator.mjs --spec examples/order-fulfilment.json --contract build/execution-contract.json",
+    "pack:check": "npm pack --dry-run",
+    "check": "npm run lint && npm test && npm run example && npm run pack:check"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/edilec/workflow-step-contract-validator"
-  }
+    "url": "git+https://github.com/edilec/workflow-step-contract-validator.git"
+  },
+  "bin": {
+    "workflow-step-contract-validator": "./bin/workflow-step-contract-validator.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "examples",
+    "docs",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "workflow",
+    "dag",
+    "contract",
+    "validation",
+    "pipeline",
+    "static-analysis",
+    "cli"
+  ],
+  "author": "Edilec Private Limited",
+  "bugs": {
+    "url": "https://github.com/edilec/workflow-step-contract-validator/issues"
+  },
+  "homepage": "https://github.com/edilec/workflow-step-contract-validator#readme"
 }
