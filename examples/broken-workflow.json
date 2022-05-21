@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1",
+  "workflow": "order-fulfilment (broken)",
+  "description": "The same workflow with six defects a static check can find before anything runs.",
+  "provided": [{ "name": "orderId", "type": "string" }],
+  "exports": [{ "name": "shipment", "type": "Shipment" }],
+  "steps": [
+    {
+      "id": "fetch-order",
+      "version": "1.9.0",
+      "inputs": [{ "name": "orderId", "type": "string" }],
+      "outputs": [{ "name": "order", "type": "Order" }]
+    },
+    {
+      "id": "check-stock",
+      "version": "1.4.2",
+      "inputs": [
+        { "name": "order", "type": "Order", "minVersion": "2.0.0" },
+        { "name": "catalogue", "type": "Catalogue" }
+      ],
+      "outputs": [
+        { "name": "reservation", "type": "Reservation" },
+        { "name": "backorder", "type": "Backorder", "optional": true }
+      ]
+    },
+    {
+      "id": "price-order",
+      "version": "3.0.1",
+      "inputs": [
+        { "name": "order", "type": "OrderRecord" },
+        { "name": "shipment", "type": "Shipment" }
+      ],
+      "outputs": [{ "name": "invoice", "type": "Invoice" }]
+    },
+    {
+      "id": "notify-backorder",
+      "version": "1.0.0",
+      "inputs": [{ "name": "backorder", "type": "Backorder" }],
+      "outputs": [{ "name": "notice", "type": "Notice" }]
+    },
+    {
+      "id": "reprice",
+      "version": "1.0.0",
+      "inputs": [{ "name": "notice", "type": "Notice" }],
+      "outputs": [{ "name": "invoice", "type": "Invoice" }]
+    },
+    {
+      "id": "ship",
+      "version": "1.2.0",
+      "requires": ["archive-order"],
+      "inputs": [
+        { "name": "reservation", "type": "Reservation" },
+        { "name": "invoice", "type": "Invoice" }
+      ],
+      "outputs": [{ "name": "shipment", "type": "Shipment" }]
+    }
+  ]
+}
