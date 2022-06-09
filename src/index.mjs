@@ -270,11 +270,10 @@ export function analyzeWorkflow(input = {}) {
   state.workflow = spec.workflow === null ? null : label(spec.workflow)
   state.declaredSteps = spec.declaredSteps
   if (spec.stopped) return finish(collector, state)
-
-  if (deadline.exceeded()) {
-    recordTimeout(collector, '/steps')
-    return finish(collector, state)
-  }
+  // From here the steps have been read, so the contract can describe them even
+  // if a later budget stops the run: "checked" counts the steps this run
+  // actually looked at, and it is never inflated by the ones it did not.
+  state.steps = spec.steps
 
   /**
    * Green on no evidence is a defect, not a clean bill of health. A workflow
@@ -293,13 +292,19 @@ export function analyzeWorkflow(input = {}) {
   }
 
   const producers = buildProducers(spec, collector)
+  const analysed = { spec, producers }
+  if (deadline.exceeded()) {
+    recordTimeout(collector, '/steps')
+    return finish(collector, state, analysed)
+  }
+
   const bound = bindConsumers(spec, producers, collector)
   state.bindings = bound.bindings
   state.unbound = bound.unbound
 
   if (deadline.exceeded()) {
     recordTimeout(collector, '/steps')
-    return finish(collector, state, { spec, producers })
+    return finish(collector, state, analysed)
   }
 
   const stepIds = new Set(spec.steps.map((step) => step.id))
@@ -348,13 +353,12 @@ export function analyzeWorkflow(input = {}) {
 
   reportUnused(spec, producers, collector)
 
-  state.steps = spec.steps
   state.stages = graph.stages
   state.order = graph.order
   state.unresolved = graph.unresolved
   state.cycles = graph.cycles.length
 
-  return finish(collector, state, { spec, producers })
+  return finish(collector, state, analysed)
 }
 
 function recordTimeout(collector, pointer) {
@@ -580,10 +584,30 @@ function finish(collector, state, analysed) {
     order: state.stages.map((ids, stage) => ({ stage, steps: ids.map(label) })),
     unresolved: state.unresolved.map(label),
     steps: analysed === undefined ? [] : describeSteps(analysed.spec, analysed.producers, stageOf),
+    exports: analysed === undefined ? [] : analysed.spec.exports.map((port) => describeBinding(port, analysed.producers)),
     channels,
   }
 
   return { report, contract }
+}
+
+/**
+ * Describe one consumer and the producer it resolved to.
+ *
+ * `resolved: false` is the whole point of listing an unresolved binding: a
+ * contract that silently omitted it would read as if the step had one fewer
+ * requirement than it declared.
+ */
+function describeBinding(port, producers) {
+  const producer = producers.get(port.name)?.[0]
+  return {
+    name: label(port.name),
+    type: port.type === null ? null : label(port.type),
+    optional: port.optional,
+    minVersion: port.minVersion === null ? null : port.minVersion.join('.'),
+    from: producer === undefined ? null : label(producer.owner),
+    resolved: producer !== undefined,
+  }
 }
 
 function describeSteps(spec, producers, stageOf) {
@@ -591,17 +615,7 @@ function describeSteps(spec, producers, stageOf) {
     id: label(step.id),
     version: step.version === null ? null : step.version.join('.'),
     stage: stageOf.has(step.id) ? stageOf.get(step.id) : null,
-    consumes: step.inputs.map((port) => {
-      const producer = producers.get(port.name)?.[0]
-      return {
-        name: label(port.name),
-        type: port.type === null ? null : label(port.type),
-        optional: port.optional,
-        minVersion: port.minVersion === null ? null : port.minVersion.join('.'),
-        from: producer === undefined ? null : label(producer.owner),
-        resolved: producer !== undefined,
-      }
-    }),
+    consumes: step.inputs.map((port) => describeBinding(port, producers)),
     produces: step.outputs.map((port) => ({
       name: label(port.name),
       type: port.type === null ? null : label(port.type),
