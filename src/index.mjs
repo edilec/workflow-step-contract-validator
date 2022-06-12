@@ -23,7 +23,7 @@
  *    of the document chose.
  */
 
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 
@@ -684,16 +684,26 @@ const ANCESTOR_PROBE_LIMIT = 64
  * Resolve the execution contract's destination, and refuse the specification.
  *
  * The contract is a derived artifact. Writing it over the document it was
- * derived from would destroy the input, and comparing the two paths as strings
- * does not prevent that: a symbolic link beside the specification spells a
- * different path and names the same file. Both sides go through `realpath`.
+ * derived from destroys the input, irreversibly, and no comparison of *paths*
+ * prevents that. A symbolic link has a target, so `realpath` collapses it -- but
+ * a **hard link has no target**. Two names for one inode resolve to two
+ * different real paths, so a `realpath` comparison says they are different files
+ * and the write destroys the specification. Hard links are routine in build
+ * trees: `cp -l`, package-store linking and de-duplicating backups all make
+ * them. So identity is decided the way the filesystem decides it, by device and
+ * inode, read with `bigint: true` because an inode number can exceed what a
+ * double represents exactly.
+ *
+ * The resolved-path comparison is kept as well, for a filesystem that reports no
+ * inode number at all (`ino` of zero), where the dev/ino test cannot answer.
  *
  * The destination usually does not exist yet, so its nearest existing ancestor
  * is resolved and the remaining segments are appended. Resolving the ancestor
  * rather than refusing the unresolvable path is the other half of the same
  * defect: a destination under a symlinked directory -- which is what the
  * system temporary directory is on macOS -- is a legitimate destination, and
- * refusing it would be a bug of its own.
+ * refusing it would be a bug of its own. A destination that does not exist
+ * cannot be the specification, which does.
  */
 export async function resolveContractDestination(specPath, destination) {
   if (typeof destination !== 'string' || destination.trim() === '') {
@@ -722,14 +732,29 @@ export async function resolveContractDestination(specPath, destination) {
 
   const resolved = tail.length === 0 ? realBase : join(realBase, ...tail)
   let specReal
+  let specStat
   try {
     specReal = await realpath(specPath)
+    specStat = await stat(specPath, { bigint: true })
   } catch (error) {
     throw new TypeError(`The specification could not be resolved: ${error.code ?? 'unknown error'}`)
   }
-  if (resolved === specReal) {
+
+  let destinationStat = null
+  try {
+    destinationStat = await stat(resolved, { bigint: true })
+  } catch (error) {
+    if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') {
+      throw new TypeError(`Contract destination could not be resolved: ${error.code ?? 'unknown error'}`)
+    }
+  }
+  const sameFile = destinationStat !== null
+    && destinationStat.ino !== 0n
+    && destinationStat.ino === specStat.ino
+    && destinationStat.dev === specStat.dev
+  if (sameFile || resolved === specReal) {
     throw new TypeError(
-      'Contract destination resolves to the specification itself; the contract is a derived artifact and must be written elsewhere',
+      'Contract destination is the specification itself; the contract is a derived artifact and must be written elsewhere',
     )
   }
   return resolved

@@ -200,10 +200,18 @@ than omitted: a contract that quietly dropped it would read as if the step had
 one fewer requirement than it declared. `complete` is false whenever the status
 is `incomplete`, so a consumer never has to infer it.
 
-The destination is refused if it resolves to the specification itself. Both paths
-go through `realpath`, because a symbolic link beside the specification spells a
-different path and names the same file -- and because resolving only one side
-would refuse legitimate destinations under a symlinked directory.
+The destination is refused if it **is** the specification, and identity is
+decided the way the filesystem decides it: by device and inode. A symbolic link
+has a target, so `realpath` collapses it; a **hard link has none**, so two names
+for one inode resolve to two different real paths, a comparison of paths calls
+them different files, and the write destroys the input. Hard links are routine in
+build trees -- `cp -l`, package-store linking, de-duplicating backups.
+
+The destination is still resolved through `realpath` -- its nearest existing
+ancestor, because it usually does not exist yet -- since resolving only one side
+would refuse legitimate destinations under a symlinked directory, which is what
+the system temporary directory is on macOS. A destination that does not exist
+cannot be the specification, which does.
 
 ## Determinism
 

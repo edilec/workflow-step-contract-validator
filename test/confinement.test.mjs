@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { link, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
@@ -20,6 +20,13 @@ const cli = join(projectDirectory, 'bin', 'workflow-step-contract-validator.mjs'
  * destination is not refused. A false refusal is a defect of its own: on a
  * host where the destination sits under a symlinked directory, a check that
  * compared a resolved path against an unresolved one would refuse every write.
+ *
+ * A hard link is the case a path comparison cannot see. A symbolic link has a
+ * target and `realpath` collapses it; a hard link has none, so two names for one
+ * inode resolve to two different real paths, a path comparison calls them
+ * different files, and the write destroys the specification. That is why the
+ * guard compares device and inode, and why the case below asserts the bytes of
+ * the specification afterwards rather than only the exit code.
  */
 
 const SPEC = JSON.stringify({ schemaVersion: '1', steps: [{ id: 'a', version: '1.0.0' }] })
@@ -41,7 +48,7 @@ test('a destination that resolves to the specification is refused', async (t) =>
   const { directory, specPath } = await workspace(t)
   await assert.rejects(
     () => resolveContractDestination(specPath, specPath),
-    /resolves to the specification itself/,
+    /is the specification itself/,
   )
   // Spelled as a different path, through a symbolic link, and naming the same
   // file. Comparing the two strings would accept this and destroy the input.
@@ -49,8 +56,43 @@ test('a destination that resolves to the specification is refused', async (t) =>
   await symlink(specPath, alias)
   await assert.rejects(
     () => resolveContractDestination(specPath, alias),
-    /resolves to the specification itself/,
+    /is the specification itself/,
   )
+})
+
+test('a hard link to the specification is refused, and the specification survives', async (t) => {
+  const { directory, specPath } = await workspace(t)
+  const hard = join(directory, 'hard.json')
+  await link(specPath, hard)
+
+  // The premise: one file, two names, two different real paths. A guard that
+  // compared resolved paths would accept this destination.
+  const [specStat, hardStat] = await Promise.all([stat(specPath), stat(hard)])
+  assert.equal(hardStat.ino, specStat.ino, 'the fixture did not create a hard link')
+  assert.equal(hardStat.dev, specStat.dev, 'the fixture did not create a hard link')
+  assert.notEqual(await realpath(hard), await realpath(specPath), 'a hard link is supposed to resolve elsewhere')
+
+  await assert.rejects(() => resolveContractDestination(specPath, hard), /is the specification itself/)
+
+  const result = await runCli(['--spec', specPath, '--contract', hard])
+  assert.equal(result.code, 2)
+  assert.equal(result.stdout, '', 'a configuration error wrote a report')
+  assert.match(result.stderr, /--contract is not usable/)
+  assert.equal(await readFile(specPath, 'utf8'), SPEC, 'the specification was overwritten through a hard link')
+  assert.equal(await readFile(hard, 'utf8'), SPEC, 'the specification was overwritten through a hard link')
+})
+
+test('a hard link to something that is not the specification is still a legitimate destination', async (t) => {
+  const { directory, specPath } = await workspace(t)
+  const other = join(directory, 'other.json')
+  await writeFile(other, '{}', 'utf8')
+  const hardToOther = join(directory, 'hard-other.json')
+  await link(other, hardToOther)
+
+  const resolved = await resolveContractDestination(specPath, hardToOther)
+  await writeContractFile(resolved, { ok: true })
+  assert.equal(JSON.parse(await readFile(other, 'utf8')).ok, true)
+  assert.equal(await readFile(specPath, 'utf8'), SPEC)
 })
 
 test('a legitimate destination is accepted, including under a symlinked directory', async (t) => {
