@@ -70,6 +70,46 @@ test('a workflow export with no producer fails in the same way', () => {
   assert.match(report.findings[0].message, /^The workflow export consumes channel "result"/)
 })
 
+test('an optional consumer whose channel nobody produces still fails', () => {
+  // The optionality matrix decides what happens once a producer exists. It does
+  // not excuse a producer that is absent: an optional input still names a
+  // channel, and a channel no step declares is a wiring mistake whichever way
+  // the consumer copes with a missing value. Suppressing the finding here would
+  // turn a documented failure into a green pass.
+  const { report, contract } = run({
+    schemaVersion: '1',
+    exports: [{ name: 'phantom', type: 'string', optional: true }],
+    steps: [
+      step('a', { outputs: [{ name: 'real', type: 'string' }] }),
+      step('b', {
+        inputs: [
+          { name: 'real', type: 'string' },
+          { name: 'ghost', type: 'string', optional: true },
+        ],
+      }),
+    ],
+  })
+  assert.equal(report.status, 'fail')
+  assert.deepEqual(rules(report), ['missing-producer', 'missing-producer'])
+  assert.deepEqual(report.findings.map((finding) => finding.location.pointer), [
+    '/exports/phantom',
+    '/steps/b/inputs/ghost',
+  ])
+  assert.equal(report.summary.errors, 2)
+  assert.equal(report.summary.unbound, 2)
+  assert.deepEqual(contract.steps.find((entry) => entry.id === 'b').consumes[1], {
+    name: 'ghost',
+    type: 'string',
+    optional: true,
+    minVersion: null,
+    from: null,
+    resolved: false,
+  })
+  assert.deepEqual(contract.exports, [
+    { name: 'phantom', type: 'string', optional: true, minVersion: null, from: null, resolved: false },
+  ])
+})
+
 test('a consumer whose declared type disagrees with the producer fails', () => {
   const { report } = run({
     schemaVersion: '1',

@@ -116,6 +116,75 @@ test('an identifier cannot forge a line in the human report', () => {
   }
 })
 
+/**
+ * The bounds, pinned on what a run emits.
+ *
+ * Removing a class of control character is only half of sanitising. The other
+ * half is the length bound, and it is load-bearing for exactly the fields whose
+ * content the document controls without limit:
+ *
+ * - a `dependency-cycle` message interpolates every member of the cycle, so it
+ *   grows with the workflow (up to `maxSteps` ids of up to 100 characters);
+ * - `evidence` echoes the raw string that was rejected, and a string is only
+ *   rejected *because* it was not a valid, length-checked identifier;
+ * - the workflow label and the source label are free text.
+ *
+ * Each assertion below is the emitted length, so dropping the limit at the one
+ * construction site turns it red.
+ */
+
+const CYCLE_ID_LENGTH = 80
+const CYCLE_MEMBERS = 20
+const cycleIds = Array.from(
+  { length: CYCLE_MEMBERS },
+  (_, index) => `c${String(index).padStart(2, '0')}${'x'.repeat(CYCLE_ID_LENGTH - 3)}`,
+)
+
+test('a message grown by the document is bounded and says it was cut', () => {
+  const { report } = run({
+    schemaVersion: '1',
+    steps: cycleIds.map((id, index) => ({
+      id,
+      version: '1.0.0',
+      requires: [cycleIds[(index + 1) % cycleIds.length]],
+    })),
+  }, 'spec.json')
+  const cycle = report.findings.find((finding) => finding.ruleId === 'dependency-cycle')
+  assert.equal(cycleIds[0].length, CYCLE_ID_LENGTH, 'the fixture ids are not the length it claims')
+  // 20 ids of 80 characters plus the prose is thousands of characters long.
+  assert.equal(cycle.message.length, 403, 'the message bound stopped being applied')
+  assert.equal(cycle.message.endsWith('...'), true, 'a cut message did not say it was cut')
+  assert.equal(cycle.message.startsWith(`Steps form a dependency cycle: ${cycleIds[0]} -> `), true)
+  // The suggestion beside it is a fixed string and is nowhere near the bound,
+  // so this is the message being cut and not the whole finding.
+  assert.equal(cycle.suggestion, 'Break the cycle by removing a dependency or by splitting a step.')
+})
+
+test('evidence echoing a rejected string is bounded and says it was cut', () => {
+  const rejected = `9${'e'.repeat(500)}`
+  const { report } = run({
+    schemaVersion: '1',
+    steps: [{ id: 'a', version: '1.0.0', outputs: [{ name: rejected, type: 'string' }] }],
+  }, 'spec.json')
+  const finding = report.findings.find((entry) => entry.ruleId === 'port-name-invalid')
+  assert.equal(finding.evidence.length, 203, 'the evidence bound stopped being applied')
+  assert.equal(finding.evidence.endsWith('...'), true)
+  assert.equal(finding.evidence.startsWith('9eee'), true)
+})
+
+test('a label the document chose is bounded in the report and in the contract', () => {
+  const { report, contract } = run({
+    schemaVersion: '1',
+    workflow: 'w'.repeat(500),
+    steps: [{ id: 'a', version: '1.0.0', outputs: [{ name: 'spare', type: 'string' }] }],
+  }, `${'s'.repeat(500)}.json`)
+  assert.equal(contract.workflow.length, 123, 'the workflow label bound stopped being applied')
+  assert.equal(contract.workflow.endsWith('...'), true)
+  assert.equal(contract.source.length, 123, 'the source label bound stopped being applied')
+  assert.equal(report.findings[0].ruleId, 'output-unconsumed', 'the fixture raised nothing to carry a label')
+  assert.equal(report.findings[0].location.file.length, 123)
+})
+
 test('no forbidden code point reaches the real CLI on stdout, in either output mode', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'workflow-contract-sanitise-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
