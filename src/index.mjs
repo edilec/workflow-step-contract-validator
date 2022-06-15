@@ -379,6 +379,12 @@ function recordTimeout(collector, pointer) {
  * producer of that channel is reported. `(provided)` sorts before any step id
  * because an identifier must begin with a letter, so a channel supplied to the
  * workflow always wins that tie -- and the step that shadows it is named.
+ *
+ * Owner alone is a total order here: the `provided` list and each step's
+ * `outputs` list are already deduplicated by name (`port-duplicated`), and step
+ * ids are deduplicated too (`step-id-duplicated`), so one owner can contribute
+ * at most one producer of one channel. A second sort key would be a comparison
+ * no input can reach, and code no input can reach is code no test can pin.
  */
 function buildProducers(spec, collector) {
   const producers = new Map()
@@ -395,7 +401,7 @@ function buildProducers(spec, collector) {
     }
   }
   for (const [name, entries] of producers) {
-    entries.sort((left, right) => byCodeUnit(left.owner, right.owner) || byCodeUnit(left.pointer, right.pointer))
+    entries.sort((left, right) => byCodeUnit(left.owner, right.owner))
     for (const duplicate of entries.slice(1)) {
       record(collector, {
         ruleId: 'duplicate-producer',
