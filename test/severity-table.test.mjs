@@ -17,7 +17,12 @@ const SOURCE_FILES = ['src/index.mjs', 'src/spec.mjs', 'src/graph.mjs', 'src/tex
  * agreeing with each other can all be edited together, and a catalog where
  * that was the only defence had forty error rules survive being flipped to
  * warnings. The guard is test/severity-behaviour.test.mjs, which drives every
- * rule through the real entry point and asserts the exit code.
+ * rule through the real command line and states each outcome as a literal.
+ *
+ * What lives here is the one thing that guard cannot check about itself: that
+ * it has a case for every rule, and that it still imports nothing from `src/`.
+ * A guard that imported the table would be a fourth declaration agreeing with
+ * the other three.
  */
 
 const readProjectFile = (relativePath) => readFile(resolve(projectDirectory, relativePath), 'utf8')
@@ -40,6 +45,23 @@ test('the documented catalog and the severity table list the same rules, with th
     Object.fromEntries(documented.map((row) => [row.ruleId, row.severity])),
     { ...RULE_SEVERITY },
   )
+})
+
+test('every rule in the table has a case of its own in the behavioural guard', async () => {
+  const text = await readProjectFile('test/severity-behaviour.test.mjs')
+  assert.equal(
+    text.includes("from '../src/index.mjs'"),
+    false,
+    'the behavioural guard imports the table it exists to defend',
+  )
+  for (const ruleId of Object.keys(RULE_SEVERITY)) {
+    assert.match(
+      text,
+      new RegExp(`await run\\(\\s*'${ruleId}'`),
+      `${ruleId} has no case in test/severity-behaviour.test.mjs`,
+    )
+  }
+  assert.equal(Object.keys(RULE_SEVERITY).length, 36)
 })
 
 test('the documented incomplete column and INCOMPLETE_RULES agree in both directions', async () => {

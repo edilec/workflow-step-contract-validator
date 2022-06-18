@@ -167,8 +167,11 @@ So the guards assert behaviour rather than declarations.
 
 - **Severity** is pinned by driving all 36 rules through the real command line
   and asserting the exit code, the status, the exact set of rules raised, the
-  severity word printed on stdout and the error count. A coordinated edit of the
-  table and the documentation passes the consistency test and fails this one.
+  error, warning and info counts, and the severity word printed on stdout. Each
+  rule is a test of its own and every expectation is written inline as a
+  literal: that file imports nothing from `src/` and shares no table of cases
+  with anything, because a behavioural test that compares against a table the
+  same edit touches is a fourth mirror rather than a guard.
 - **Ordering** is pinned with identifiers where code-unit and collation order
   genuinely disagree (`README` before `assets`, `Z` before `a`, `a-b` before
   `a_b`). Substituting an `Intl.Collator` turns every ordering test red.
