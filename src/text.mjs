@@ -77,7 +77,6 @@ const CONTROL = new RegExp(
 export const EXCERPT_LIMIT = 200
 export const MESSAGE_LIMIT = 400
 export const LABEL_LIMIT = 120
-export const SEGMENT_LIMIT = 120
 
 /**
  * A bounded, single-line, control-free rendering of an untrusted string.
@@ -93,20 +92,4 @@ export function sanitize(value, limit = EXCERPT_LIMIT) {
   const flattened = String(value).replace(CONTROL, ' ').replace(/\s+/g, ' ').trim()
   if (flattened.length <= limit) return flattened
   return `${flattened.slice(0, limit)}...`
-}
-
-/** Escape one path segment for a JSON Pointer, per RFC 6901. */
-export function escapePointerSegment(segment) {
-  return String(segment).replaceAll('~', '~0').replaceAll('/', '~1')
-}
-
-/**
- * Build a field path out of untrusted segments.
- *
- * The segments are step ids and port names taken from the document, so they
- * are sanitised first and escaped second: sanitising after escaping would let
- * a control character through the escape and into the pointer.
- */
-export function fieldPath(...segments) {
-  return `/${segments.map((segment) => escapePointerSegment(sanitize(segment, SEGMENT_LIMIT))).join('/')}`
 }

@@ -185,6 +185,44 @@ test('a label the document chose is bounded in the report and in the contract', 
   assert.equal(report.findings[0].location.file.length, 123)
 })
 
+test('an identifier that would need escaping in a pointer is refused instead', () => {
+  // Every pointer this tool emits is an identifier interpolated straight into a
+  // path, and that is safe for one reason: `/` and `~`, the two characters RFC
+  // 6901 escapes, are not in the identifier grammar. So an id that would have
+  // needed escaping is refused and reported at an index-based pointer, and no
+  // pointer ever carries an escape to get wrong.
+  const { report } = run({
+    schemaVersion: '1',
+    steps: [
+      { id: 'a/b', version: '1.0.0' },
+      { id: 'c~d', version: '1.0.0' },
+      {
+        id: 'ok',
+        version: '1.0.0',
+        requires: ['p/q'],
+        outputs: [{ name: 'x/y', type: 'string' }, { name: 'z~w', type: 'string' }],
+      },
+    ],
+  }, 'spec.json')
+  assert.deepEqual(report.findings.map((finding) => [finding.ruleId, finding.location.pointer]), [
+    ['step-id-invalid', '/steps/0'],
+    ['step-id-invalid', '/steps/1'],
+    ['port-name-invalid', '/steps/ok/outputs/0'],
+    ['port-name-invalid', '/steps/ok/outputs/1'],
+    ['dependency-malformed', '/steps/ok/requires/0'],
+  ])
+  assert.equal(report.status, 'incomplete')
+  // The rejected spelling is still named, in the one field that quotes it.
+  assert.deepEqual(report.findings.map((finding) => finding.evidence), ['a/b', 'c~d', 'x/y', 'z~w', 'p/q'])
+  for (const finding of report.findings) {
+    assert.match(
+      finding.location.pointer,
+      /^\/[^~]*$/,
+      `pointer ${finding.location.pointer} carries a character RFC 6901 would have to escape`,
+    )
+  }
+})
+
 test('no forbidden code point reaches the real CLI on stdout, in either output mode', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'workflow-contract-sanitise-'))
   t.after(() => rm(directory, { recursive: true, force: true }))

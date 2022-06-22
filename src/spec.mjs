@@ -72,6 +72,14 @@ export function validateLimits(overrides = {}) {
  * pattern is deliberately narrow -- an identifier that does not match is
  * reported rather than sanitised into something that happens to be valid,
  * because silently renaming a declaration would change which channel it binds.
+ *
+ * The narrowness is also what makes a JSON Pointer safe to build by
+ * interpolation. `/` and `~` are the two characters RFC 6901 has to escape, and
+ * neither is in this grammar, so an id that reaches a pointer needs no escaping
+ * and an id that would have needed it never reaches one -- it is reported at an
+ * index-based pointer instead. That is a property of the refusal, so
+ * `test/sanitising.test.mjs` asserts the refusal and the shape of every pointer
+ * a run emits, rather than an escaping helper nothing calls.
  */
 export const NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]*$/
 export const TYPE_PATTERN = /^[A-Za-z][A-Za-z0-9_.:-]*(?:\[\])?$/

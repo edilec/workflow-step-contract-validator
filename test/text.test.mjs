@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { byCodeUnit, decodeUtf8, fieldPath, sanitize } from '../src/text.mjs'
+import { byCodeUnit, decodeUtf8, sanitize } from '../src/text.mjs'
 
 /**
  * The primitives every other guarantee rests on. These are unit tests of the
@@ -64,12 +64,4 @@ test('ordering is by code unit, where collation genuinely disagrees', () => {
   assert.equal(byCodeUnit('a-b', 'a_b') < 0, true)
   assert.equal(byCodeUnit('a', 'a'), 0)
   assert.equal(byCodeUnit('b', 'a') > 0, true)
-})
-
-test('field paths escape their segments after sanitising them', () => {
-  assert.equal(fieldPath('steps', 'a/b'), '/steps/a~1b')
-  assert.equal(fieldPath('steps', 'a~b'), '/steps/a~0b')
-  // Sanitising happens first: escaping first would carry the control character
-  // through the escape and into the pointer.
-  assert.equal(fieldPath('steps', `a${CH(0x85)}/b`), '/steps/a ~1b')
 })
