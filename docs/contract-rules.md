@@ -80,9 +80,12 @@ A consumer and its producer are compatible when all three hold:
    the branch where the producer stays silent, which is the branch nobody tests.
 
 A consumer may additionally declare `minVersion`, which is checked against the
-**producing step's** version with caret semantics: the major version must match
+**producing step's** version by two rules: the major version must match
 (`producer-major-mismatch` otherwise) and the rest must be at least the minimum
-(`producer-version-too-low` otherwise). A constraint that could not be checked --
+(`producer-version-too-low` otherwise). This is not npm's `^`, which treats a
+`0.x` major as unstable and admits only `0.1.x` for `^0.1.0`; here a `0.9.0`
+producer satisfies a `0.1.0` minimum, because in this document the major version
+carries the whole of the compatibility claim. A constraint that could not be checked --
 because the channel is supplied to the workflow, or the producing step's version
 could not be read -- is `producer-version-unknown`, which is unknown evidence and
 makes the run incomplete. It is never treated as satisfied.

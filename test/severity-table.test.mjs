@@ -75,6 +75,16 @@ test('the documented incomplete column and INCOMPLETE_RULES agree in both direct
   }
 })
 
+test('the README states how many rules make a run incomplete, and states it right', async () => {
+  // The README said fourteen while the code declared twenty-five. Nothing
+  // compared the two, because the consistency test above reads the docs and
+  // never the README.
+  const text = await readProjectFile('README.md')
+  const stated = /\| (\d+) rules, every one of which makes the run `incomplete` \|/.exec(text)
+  assert.notEqual(stated, null, 'the README no longer says how many rules make a run incomplete')
+  assert.equal(Number(stated[1]), INCOMPLETE_RULES.length)
+})
+
 test('every rule the source emits is in the severity table', async () => {
   const sources = await Promise.all(SOURCE_FILES.map((path) => readProjectFile(path)))
   const text = sources.join('\n')

@@ -229,6 +229,13 @@ test('version constraints are checked against the producing step', () => {
   // A newer major version is a breaking change, not a satisfied minimum.
   assert.deepEqual(rules(build('3.0.0', '2.0.0').report), ['producer-major-mismatch'])
   assert.deepEqual(rules(build('1.0.0', '2.0.0').report), ['producer-major-mismatch'])
+
+  // The 0.x case, where this rule is deliberately not npm's caret: `^0.1.0`
+  // admits only 0.1.x, and here the major version carries the whole of the
+  // compatibility claim, so 0.9.0 satisfies a 0.1.0 minimum and 1.0.0 does not.
+  assert.deepEqual(rules(build('0.9.0', '0.1.0').report), [])
+  assert.deepEqual(rules(build('0.1.0', '0.9.0').report), ['producer-version-too-low'])
+  assert.deepEqual(rules(build('1.0.0', '0.1.0').report), ['producer-major-mismatch'])
 })
 
 test('a version constraint that could not be checked is unknown, not satisfied', () => {

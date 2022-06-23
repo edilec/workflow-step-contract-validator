@@ -17,16 +17,18 @@ change and is recorded here.
   `--contract`, `--json`, `--help` and the nine documented limit flags.
 - Compatibility checking for every binding: a missing producer, a type
   disagreement, an optional output against a required consumer, an ambiguous
-  duplicate producer, and `minVersion` against the producing step's version with
-  caret semantics. A version constraint that could not be checked is reported as
-  unknown, never as satisfied.
+  duplicate producer, and `minVersion` against the producing step's version --
+  the same major version, and not older than the minimum, which is deliberately
+  not npm's `^` for a `0.x` producer. A version constraint that could not be
+  checked is reported as unknown, never as satisfied.
 - Static scheduling: execution stages resolved by Kahn's algorithm, cycles named
   from their code-unit-smallest member, and the steps stranded behind a cycle
   reported separately.
 - An execution contract listing the resolved order, every step's stage, where
   each consumed value comes from, the bindings that resolved to nothing, and the
-  workflow's exports. Its destination is refused if it resolves to the
-  specification itself, with both paths resolved through `realpath`.
+  workflow's exports. Its destination is refused if it is the specification
+  itself, compared by device and inode so that a hard link is refused as well as
+  a symbolic link.
 - Thirty-six rules with severities pinned in one frozen table and behaviourally
   in the test suite, documented in `docs/contract-rules.md`.
 - Nine explicit limits -- bytes, steps, ports per step, dependencies per step,

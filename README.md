@@ -54,9 +54,16 @@ workflow-step-contract-validator --spec examples/broken-workflow.json
 ```
 
 ```
+workflow "order-fulfilment (broken)": 6 step(s) checked of 6 declared, 7 error, 0 warning, 0 info, status fail.
+7 channel(s), 9 binding(s), 1 unbound, 4 step(s) ordered, 2 unresolved, 1 cycle(s).
+order: [0] fetch-order | [1] check-stock | [2] notify-backorder | [3] reprice
 ERROR   examples/broken-workflow.json/steps/check-stock/inputs/catalogue missing-producer Step "check-stock" consumes channel "catalogue", which no step produces and the workflow does not provide.
+ERROR   examples/broken-workflow.json/steps/check-stock/inputs/order producer-major-mismatch Step "check-stock" requires channel "order" from a 2.x producer, but fetch-order is version 1.9.0; a different major version is not compatible.
+ERROR   examples/broken-workflow.json/steps/notify-backorder/inputs/backorder optional-output-required-input Step "notify-backorder" requires channel "backorder", but check-stock only optionally produces it, so the value can be absent when the step runs.
 ERROR   examples/broken-workflow.json/steps/price-order dependency-cycle Steps form a dependency cycle: price-order -> ship -> price-order, where "X -> Y" means X depends on Y. None of them can be scheduled.
 ERROR   examples/broken-workflow.json/steps/price-order/inputs/order type-incompatible Step "price-order" declares channel "order" as OrderRecord, but fetch-order produces it as Order.
+ERROR   examples/broken-workflow.json/steps/reprice/outputs/invoice duplicate-producer Channel "invoice" is produced by reprice and by price-order, so which value a consumer receives is undefined.
+ERROR   examples/broken-workflow.json/steps/ship/requires unknown-dependency Step "ship" requires "archive-order", which no step declares.
 ```
 
 Add `--json` for the machine-readable report, and `--contract FILE` to write the
@@ -112,7 +119,7 @@ throws; everything that is a fact about the document is a finding instead.
 | Steps waiting for each other | `dependency-cycle`, `step-unschedulable` |
 | A dependency on a step that is not declared | `unknown-dependency` |
 | A producer older than the consumer requires | `producer-version-too-low`, `producer-major-mismatch` |
-| A declaration this tool could not read | fourteen rules, every one of which makes the run `incomplete` |
+| A declaration this tool could not read | 25 rules, every one of which makes the run `incomplete` |
 
 The full catalog, with severities and limits, is in
 [docs/contract-rules.md](./docs/contract-rules.md).
@@ -131,10 +138,14 @@ a great deal it cannot conclude:
   `Order` and `OrderRecord` are different types even if one is a subset of the
   other. There is no structural typing, no schema resolution and no subtyping,
   because guessing would mean reporting a compatibility that was never checked.
-- **It does not resolve versions.** A version is `major.minor.patch` and is
-  compared with caret semantics against the producing step's declared version.
-  Pre-releases, build metadata and ranges are refused as unreadable rather than
-  interpreted. It has no registry, and never fetches one.
+- **It does not resolve versions.** A version is exactly `major.minor.patch`. A
+  `minVersion` constraint is satisfied when the producing step declares the same
+  major version and is not older than the minimum -- which is deliberately not
+  npm's `^`: `^0.1.0` admits only `0.1.x`, whereas here a `0.9.0` producer
+  satisfies a `0.1.0` minimum, because the major version carries the whole of
+  the compatibility claim. Pre-releases, build metadata and ranges are refused
+  as unreadable rather than interpreted. It has no registry, and never fetches
+  one.
 - **It cannot see a dependency the document does not declare.** Two steps that
   share a database table, a lock or a file are independent as far as this tool
   is concerned. Declare the ordering with `requires` and it will be enforced;
@@ -172,9 +183,13 @@ So the guards assert behaviour rather than declarations.
   literal: that file imports nothing from `src/` and shares no table of cases
   with anything, because a behavioural test that compares against a table the
   same edit touches is a fourth mirror rather than a guard.
-- **Ordering** is pinned with identifiers where code-unit and collation order
-  genuinely disagree (`README` before `assets`, `Z` before `a`, `a-b` before
-  `a_b`). Substituting an `Intl.Collator` turns every ordering test red.
+- **Ordering** is pinned per call site, on the sequence a real run emits, with
+  identifiers where code-unit and collation order genuinely disagree (`README`
+  before `assets`, `Z` before `a`, `a-b` before `a_b`). Substituting an
+  `Intl.Collator` at any one of the ten comparisons that can change the output
+  turns a test red. The eleventh compares rule ids, a closed set of 36 values
+  over `[a-z-]` whose 1296 ordered pairs collate exactly as their code units do,
+  so no document can make it observable; it is named as such in that file.
 - **Sanitising** is pushed through identifiers, declaration keys, type names,
   versions and the workflow label -- not an excerpt field -- for every class in
   the table, including C1 and the bidi controls.

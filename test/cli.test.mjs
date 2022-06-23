@@ -84,6 +84,19 @@ test('the clean example passes and the broken example fails', async () => {
   ])
 })
 
+test('every worked example in the README is the real output of the command beside it', async () => {
+  // One of these blocks used to show three of the seven findings, with no
+  // ellipsis and neither summary line, so a reader comparing their own run
+  // against it would think the tool had changed under them.
+  const text = await readFile(join(projectDirectory, 'README.md'), 'utf8')
+  const worked = [...text.matchAll(/```sh\n(workflow-step-contract-validator [^\n]*)\n```\n\n```\n([\s\S]*?)```\n/g)]
+  assert.equal(worked.length, 2, 'the README worked examples moved or lost their output block')
+  for (const [, command, shown] of worked) {
+    const result = await runCli(command.split(' ').slice(1))
+    assert.equal(result.stdout, shown, `the README block for "${command}" is not what the command prints`)
+  }
+})
+
 test('stdout carries the report and nothing else', async () => {
   const result = await runCli(['--spec', clean, '--json'])
   const report = JSON.parse(result.stdout)
