@@ -193,6 +193,12 @@ So the guards assert behaviour rather than declarations.
 - **Sanitising** is pushed through identifiers, declaration keys, type names,
   versions and the workflow label -- not an excerpt field -- for every class in
   the table, including C1 and the bidi controls.
+- **No part of the specification is quoted back**, on the error path either. A
+  specification that does not parse is reported by position, line and column;
+  `JSON.parse` embeds the input in one of its two error messages, so a file
+  short enough to be only a credential would otherwise be reproduced in full by
+  its own failure -- and sanitising does not remove it, because the quotation is
+  at the front of the message and the bound cuts from the back.
 - **Incompleteness** has a case per rule that goes red when the rule stops
   marking a run incomplete.
 

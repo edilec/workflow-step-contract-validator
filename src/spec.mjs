@@ -10,7 +10,7 @@
  * not be answered" mark the whole run incomplete.
  */
 
-import { byCodeUnit, decodeUtf8, sanitize } from './text.mjs'
+import { byCodeUnit, decodeUtf8, parseFailureDetail, sanitize } from './text.mjs'
 
 export const SPEC_SCHEMA_VERSION = '1'
 
@@ -144,7 +144,7 @@ export function readSpecDocument(bytes, limits) {
       ok: false,
       ruleId: 'spec-not-json',
       message: 'The specification is not valid JSON, so nothing about this workflow was checked.',
-      evidence: String(error.message),
+      evidence: parseFailureDetail(error),
     }
   }
 }

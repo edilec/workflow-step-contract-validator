@@ -797,5 +797,5 @@ export function formatReport(report, contract) {
 }
 
 export { DEFAULT_LIMITS, NAME_LIMIT, NAME_PATTERN, TYPE_PATTERN, VERSION_PATTERN, normalizeSpec, readSpecDocument } from './spec.mjs'
-export { byCodeUnit, decodeUtf8, sanitize } from './text.mjs'
+export { byCodeUnit, decodeUtf8, parseFailureDetail, sanitize } from './text.mjs'
 export { resolveExecutionOrder } from './graph.mjs'

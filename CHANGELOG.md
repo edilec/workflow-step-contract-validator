@@ -9,6 +9,17 @@ change and is recorded here.
 
 ## [Unreleased]
 
+### Fixed
+
+- `spec-not-json` no longer quotes the specification back. Its evidence was
+  `String(error.message)`, and `JSON.parse` embeds the input in one of its two
+  error messages (`Unexpected token 'A', "AKIA..." is not valid JSON`), so a
+  specification short enough to be only a credential was reproduced in full in
+  the JSON report -- by the finding whose whole purpose is to say that nothing
+  was read. `parseFailureDetail` in `src/text.mjs` keeps the position, line and
+  column and drops the quotation. `sanitize` would not have caught it: the
+  quotation is at the front of the message and the bound cuts from the back.
+
 ### Added
 
 - `analyzeWorkflow` and `validateWorkflowFile` validate a workflow specification

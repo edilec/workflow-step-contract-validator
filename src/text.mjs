@@ -93,3 +93,37 @@ export function sanitize(value, limit = EXCERPT_LIMIT) {
   if (flattened.length <= limit) return flattened
   return `${flattened.slice(0, limit)}...`
 }
+
+/**
+ * The part of a `JSON.parse` failure that may safely become evidence.
+ *
+ * V8 reports a parse failure two ways, and one of them quotes the input:
+ * `Unexpected token 'A', "AKIAIOSFODNN7EXAMPLE" is not valid JSON`. A
+ * specification short enough to be only a credential is therefore reproduced
+ * in full by its own error message, and a longer one ten characters at a time
+ * -- a window around the offending character, drawn from wherever in the
+ * document that character sits.
+ *
+ * `sanitize` does not help. It replaces control characters and cuts from the
+ * *end*; the quoted span is at the front of the message, so it survives and
+ * the position is what gets lost.
+ *
+ * The quoted form carries no position, so nothing diagnostic is lost by
+ * reducing it to the offending token. The other form is all position and no
+ * input, and is kept. The quoted window never leaves this function.
+ *
+ * The quoted form is matched first on purpose: a specification whose own bytes
+ * read `at position 12` would otherwise be sliced after its own quoted copy.
+ */
+export function parseFailureDetail(error) {
+  const message = typeof error?.message === 'string' ? error.message : ''
+  const quoted = /^Unexpected token (.+?), (\.\.\.)?".*"(?:\.\.\.)? is not valid JSON$/s.exec(message)
+  if (quoted) {
+    const where = quoted[2] === undefined ? ' near the start' : ''
+    return `unexpected token ${sanitize(quoted[1], 8)}${where}`
+  }
+  const position = /at position \d+(?: \(line \d+ column \d+\))?/.exec(message)
+  if (position) return message.slice(0, position.index + position[0].length)
+  if (/^Unexpected end of JSON input$/.test(message)) return message
+  return 'it could not be parsed as JSON'
+}

@@ -254,6 +254,17 @@ exactly as a newline does, and neither is escaped by `JSON.stringify`. `U+202E`
 reverses the text displayed after it, so a step named one thing is read as
 another.
 
+Sanitising is not enough for one string, so `spec-not-json` reports a parse
+failure by position rather than by quotation. `JSON.parse` has two error
+messages and one of them embeds the input --
+`Unexpected token 'A', "AKIA..." is not valid JSON` for a short document, and a
+ten-character window around the offending character for a long one. A
+specification short enough to be only a credential would otherwise be
+reproduced in full by the evidence of the finding that says nothing was read,
+and sanitising does not remove it: the quoted span is at the front of the
+message while the bound cuts from the back. `parseFailureDetail` keeps the
+position, line and column -- which carry no input -- and drops the quotation.
+
 ## Exit codes
 
 | Code | Meaning | stdout |
