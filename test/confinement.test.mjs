@@ -48,16 +48,19 @@ test('a destination that resolves to the specification is refused', async (t) =>
   const { directory, specPath } = await workspace(t)
   await assert.rejects(
     () => resolveContractDestination(specPath, specPath),
-    /is the specification itself/,
+    /must be written elsewhere/,
   )
   // Spelled as a different path, through a symbolic link, and naming the same
-  // file. Comparing the two strings would accept this and destroy the input.
+  // file. Comparing the two strings would accept this and destroy the input --
+  // and following the link to find out is itself the write. So the link is
+  // refused for being a link, before anything asks where it points.
   const alias = join(directory, 'alias.json')
   await symlink(specPath, alias)
   await assert.rejects(
     () => resolveContractDestination(specPath, alias),
-    /is the specification itself/,
+    /is a symbolic link/,
   )
+  assert.equal(await readFile(specPath, 'utf8'), SPEC)
 })
 
 test('a hard link to the specification is refused, and the specification survives', async (t) => {
@@ -72,7 +75,7 @@ test('a hard link to the specification is refused, and the specification survive
   assert.equal(hardStat.dev, specStat.dev, 'the fixture did not create a hard link')
   assert.notEqual(await realpath(hard), await realpath(specPath), 'a hard link is supposed to resolve elsewhere')
 
-  await assert.rejects(() => resolveContractDestination(specPath, hard), /is the specification itself/)
+  await assert.rejects(() => resolveContractDestination(specPath, hard), /same file as an input/)
 
   const result = await runCli(['--spec', specPath, '--contract', hard])
   assert.equal(result.code, 2)

@@ -23,10 +23,11 @@
  *    of the document chose.
  */
 
-import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, resolve } from 'node:path'
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { performance } from 'node:perf_hooks'
 
+import { assertWritableDestination } from './destination.mjs'
 import { resolveExecutionOrder } from './graph.mjs'
 import {
   SPEC_SCHEMA_VERSION,
@@ -684,81 +685,46 @@ export async function validateWorkflowFile(path, options = {}) {
   return analyzeWorkflow({ ...options, bytes })
 }
 
-const ANCESTOR_PROBE_LIMIT = 64
-
 /**
- * Resolve the execution contract's destination, and refuse the specification.
+ * Resolve the execution contract's destination, and refuse a destination that
+ * would destroy a file.
  *
- * The contract is a derived artifact. Writing it over the document it was
- * derived from destroys the input, irreversibly, and no comparison of *paths*
- * prevents that. A symbolic link has a target, so `realpath` collapses it -- but
- * a **hard link has no target**. Two names for one inode resolve to two
- * different real paths, so a `realpath` comparison says they are different files
- * and the write destroys the specification. Hard links are routine in build
- * trees: `cp -l`, package-store linking and de-duplicating backups all make
- * them. So identity is decided the way the filesystem decides it, by device and
- * inode, read with `bigint: true` because an inode number can exceed what a
- * double represents exactly.
+ * The contract is derived from the specification, so writing it over the
+ * specification destroys the input irreversibly -- which this build already did
+ * once, through a hard link. But a path the caller typed is not the file it
+ * names in three separate ways, and `assertWritableDestination` in
+ * ./destination.mjs closes each: a symbolic link at the destination, a
+ * symbolically linked parent, and a hard link to an input. Every case is
+ * refused before the specification is read, so a bad destination costs nothing
+ * and writes nothing.
  *
- * The resolved-path comparison is kept as well, for a filesystem that reports no
- * inode number at all (`ino` of zero), where the dev/ino test cannot answer.
+ * This tool names no permitted root. `--contract` may legitimately point at a
+ * build directory, at the system temporary directory, or anywhere else the
+ * caller chooses; what the guard refuses is a destination that is not the file
+ * the path named. The root check itself is exercised in
+ * test/write-guard.test.mjs, which passes one.
  *
- * The destination usually does not exist yet, so its nearest existing ancestor
- * is resolved and the remaining segments are appended. Resolving the ancestor
- * rather than refusing the unresolvable path is the other half of the same
- * defect: a destination under a symlinked directory -- which is what the
- * system temporary directory is on macOS -- is a legitimate destination, and
- * refusing it would be a bug of its own. A destination that does not exist
- * cannot be the specification, which does.
+ * The resolved-path comparison below is the remaining fallback for a filesystem
+ * that reports no inode number at all (`ino` of zero), where the
+ * device-and-inode test cannot answer.
  */
 export async function resolveContractDestination(specPath, destination) {
   if (typeof destination !== 'string' || destination.trim() === '') {
     throw new TypeError('Contract destination must be a non-empty path')
   }
-  const absolute = resolve(destination)
-  const tail = []
-  let probe = absolute
-  let realBase = null
-
-  for (let step = 0; step < ANCESTOR_PROBE_LIMIT; step += 1) {
-    try {
-      realBase = await realpath(probe)
-      break
-    } catch (error) {
-      if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') {
-        throw new TypeError(`Contract destination could not be resolved: ${error.code ?? 'unknown error'}`)
-      }
-      const parent = dirname(probe)
-      if (parent === probe) throw new TypeError('Contract destination has no existing ancestor directory')
-      tail.unshift(basename(probe))
-      probe = parent
-    }
-  }
-  if (realBase === null) throw new TypeError('Contract destination is nested too deeply to resolve')
-
-  const resolved = tail.length === 0 ? realBase : join(realBase, ...tail)
   let specReal
-  let specStat
   try {
     specReal = await realpath(specPath)
-    specStat = await stat(specPath, { bigint: true })
   } catch (error) {
     throw new TypeError(`The specification could not be resolved: ${error.code ?? 'unknown error'}`)
   }
 
-  let destinationStat = null
-  try {
-    destinationStat = await stat(resolved, { bigint: true })
-  } catch (error) {
-    if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') {
-      throw new TypeError(`Contract destination could not be resolved: ${error.code ?? 'unknown error'}`)
-    }
-  }
-  const sameFile = destinationStat !== null
-    && destinationStat.ino !== 0n
-    && destinationStat.ino === specStat.ino
-    && destinationStat.dev === specStat.dev
-  if (sameFile || resolved === specReal) {
+  const resolved = await assertWritableDestination(destination, {
+    inputs: [specPath],
+    root: null,
+    label: 'Contract destination',
+  })
+  if (resolved === specReal) {
     throw new TypeError(
       'Contract destination is the specification itself; the contract is a derived artifact and must be written elsewhere',
     )
@@ -799,3 +765,4 @@ export function formatReport(report, contract) {
 export { DEFAULT_LIMITS, NAME_LIMIT, NAME_PATTERN, TYPE_PATTERN, VERSION_PATTERN, normalizeSpec, readSpecDocument } from './spec.mjs'
 export { byCodeUnit, decodeUtf8, parseFailureDetail, sanitize } from './text.mjs'
 export { resolveExecutionOrder } from './graph.mjs'
+export { DestinationError, assertWritableDestination } from './destination.mjs'
