@@ -155,9 +155,14 @@ a great deal it cannot conclude:
   duration, retries, rate limits, concurrency budgets or failure handling.
 - **It does not run, fetch, or write to the specification.** There is no
   execution, no network access and no auto-fix. The only file it writes is the
-  contract destination you name, and that destination is refused if it is the
-  specification itself -- compared by device and inode, so a hard link to the
-  specification is refused as well as a symbolic one.
+  contract destination you name -- and a path you name is not the file it names.
+  Three indirections are refused rather than followed: a symbolic link at the
+  destination (refused unresolved, because resolving it is what would write
+  through it), a parent directory whose link leaves the tree the output belongs
+  in, and a file this run reads, including one reached by a hard link, which
+  shares no path with its input and is visible only as the same device and
+  inode. Any of them is a configuration error: exit 2, nothing on stdout,
+  nothing written.
 - **`pass` means "nothing was found", over the evidence that was obtained.**
   Whenever some evidence was not obtained, the status is `incomplete` and the
   exit code is 2. A workflow that declares no steps is `incomplete`, not `pass`:

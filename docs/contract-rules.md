@@ -203,18 +203,26 @@ than omitted: a contract that quietly dropped it would read as if the step had
 one fewer requirement than it declared. `complete` is false whenever the status
 is `incomplete`, so a consumer never has to infer it.
 
-The destination is refused if it **is** the specification, and identity is
-decided the way the filesystem decides it: by device and inode. A symbolic link
-has a target, so `realpath` collapses it; a **hard link has none**, so two names
-for one inode resolve to two different real paths, a comparison of paths calls
-them different files, and the write destroys the input. Hard links are routine in
-build trees -- `cp -l`, package-store linking, de-duplicating backups.
+A path is not the file it names. Three indirections turn the destination you
+typed into a different file, they are independent, and each needs its own check:
 
-The destination is still resolved through `realpath` -- its nearest existing
-ancestor, because it usually does not exist yet -- since resolving only one side
-would refuse legitimate destinations under a symlinked directory, which is what
-the system temporary directory is on macOS. A destination that does not exist
-cannot be the specification, which does.
+| Hole | Why the obvious guard misses it |
+| --- | --- |
+| A **symbolic link at the destination** | `realpath` on the destination *resolves* the link, and resolving is the dangerous act. It is refused on sight with `lstat`, before anything is opened -- which also covers a link aimed at a path that does not exist yet, where following it creates a file the caller never named. |
+| A **symbolically linked parent** | A lexical prefix test passes for `root/link/out` where `link` leaves the root. The parent is resolved first and compared afterwards. |
+| A **hard link to an input** | It has no target to resolve and shares no path with the input, so `realpath` and string comparison both call it a different file. It is the same file. Only device plus inode sees that. Hard links are routine in build trees -- `cp -l`, package-store linking, de-duplicating backups. |
+
+A destination that exists and is not a regular file -- a directory, a socket --
+is refused as well. Every refusal is a configuration error: exit 2, empty
+stdout, nothing written, and it happens before the specification is read.
+
+What is **not** refused matters as much, because a guard that refuses
+everything is a guard nobody can use. The parent's nearest existing ancestor is
+resolved and the segments that do not exist yet are appended, so a destination
+whose directories this run will create is written as asked; and a directory
+reached through a symbolic link is legitimate as long as it stays inside the
+permitted tree -- the system temporary directory on macOS is itself a link, and
+refusing that would refuse every run in it.
 
 ## Determinism
 

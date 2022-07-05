@@ -21,8 +21,12 @@ Usage:
 
 Options:
   --spec FILE                   Workflow specification to validate (required)
-  --contract FILE               Write the typed execution contract here; it may
-                                not resolve to the specification itself
+  --contract FILE               Write the typed execution contract here. A
+                                destination that is not the file it names is
+                                refused: a symbolic link, a path whose parent
+                                leaves the permitted tree, a directory, or any
+                                file this run reads -- including one reached by
+                                a hard link, which shares no path with its input
   --json                        Emit the machine-readable report on stdout
   --max-bytes N                 Maximum specification size (default 1048576)
   --max-steps N                 Maximum declared steps (default 500)
