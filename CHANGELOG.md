@@ -38,16 +38,22 @@ change and is recorded here.
 - An execution contract listing the resolved order, every step's stage, where
   each consumed value comes from, the bindings that resolved to nothing, and the
   workflow's exports.
-- A write guard on the contract destination, closing three independent
-  indirections that each turn a named path into a different file: a symbolic
-  link at the destination, refused unresolved because resolving it is the
-  dangerous act; a symbolically linked parent, caught by resolving the parent
-  before comparing it with a permitted root rather than comparing strings; and
-  a hard link to an input, caught by device and inode, which is the only thing
-  that sees it. A refused destination is a configuration error -- exit 2, empty
-  stdout, nothing written. A new file, a file in a real subdirectory, a path
-  whose parents do not exist yet and a directory reached through a symbolic
-  link inside the root all remain legitimate destinations.
+- A write guard on the contract destination, refusing the indirections that
+  turn a named path into a different file: a symbolic link at the destination,
+  refused unresolved because resolving it is the dangerous act; a hard link to
+  an input, caught by device and inode, which is the only thing that sees it;
+  and a destination that exists and is not a regular file. A refused
+  destination is a configuration error -- exit 2, empty stdout, nothing
+  written. A new file, a file in a real subdirectory, a path whose parents do
+  not exist yet and a directory reached through a symbolic link all remain
+  legitimate destinations.
+- The guard also refuses a destination whose resolved parent leaves a permitted
+  root, resolving the parent first because a lexical prefix test passes for
+  `root/link/out` where `link` leaves the root. `--contract` names no such root
+  -- a build directory or the system temporary directory is a legitimate
+  destination -- so that check is available to an embedder that passes one and
+  is not enforced by this command line, where a symbolically linked parent
+  directory is followed.
 - Thirty-six rules with severities pinned in one frozen table and behaviourally
   in the test suite, documented in `docs/contract-rules.md`.
 - Nine explicit limits -- bytes, steps, ports per step, dependencies per step,

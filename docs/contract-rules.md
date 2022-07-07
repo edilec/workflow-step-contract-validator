@@ -216,12 +216,21 @@ A destination that exists and is not a regular file -- a directory, a socket --
 is refused as well. Every refusal is a configuration error: exit 2, empty
 stdout, nothing written, and it happens before the specification is read.
 
+The second row is conditional on a permitted root, and **`--contract` names
+none**. The destination may legitimately be a build directory, the system
+temporary directory or anywhere else the caller chooses, so this command line
+passes no root and a symbolically linked parent directory is followed rather
+than refused: the contract lands wherever that link leads, and the run exits 0.
+The check itself is real and `test/write-guard.test.mjs` passes a root to
+exercise it, which is what an embedder confining the output to a tree of its own
+would do. At the command line, name a destination whose directories you control.
+
 What is **not** refused matters as much, because a guard that refuses
 everything is a guard nobody can use. The parent's nearest existing ancestor is
 resolved and the segments that do not exist yet are appended, so a destination
-whose directories this run will create is written as asked; and a directory
-reached through a symbolic link is legitimate as long as it stays inside the
-permitted tree -- the system temporary directory on macOS is itself a link, and
+whose directories this run will create is written as asked; and when a root is
+given, a directory reached through a symbolic link is legitimate as long as it
+stays inside it -- the system temporary directory on macOS is itself a link, and
 refusing that would refuse every run in it.
 
 ## Determinism

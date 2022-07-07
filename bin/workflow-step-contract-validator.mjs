@@ -23,10 +23,14 @@ Options:
   --spec FILE                   Workflow specification to validate (required)
   --contract FILE               Write the typed execution contract here. A
                                 destination that is not the file it names is
-                                refused: a symbolic link, a path whose parent
-                                leaves the permitted tree, a directory, or any
+                                refused: a symbolic link, a directory, or any
                                 file this run reads -- including one reached by
-                                a hard link, which shares no path with its input
+                                a hard link, which shares no path with its
+                                input. The path is otherwise not confined to
+                                any root, so a parent directory that is itself
+                                a symbolic link is followed and the contract
+                                lands wherever it leads. Name a destination
+                                whose directories you control
   --json                        Emit the machine-readable report on stdout
   --max-bytes N                 Maximum specification size (default 1048576)
   --max-steps N                 Maximum declared steps (default 500)
