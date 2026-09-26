@@ -1,0 +1,281 @@
+{
+  "schemaVersion": "1",
+  "tool": "workflow-step-contract-validator",
+  "specSchemaVersion": "1",
+  "workflow": "order-fulfilment",
+  "source": "examples/order-fulfilment.json",
+  "status": "pass",
+  "complete": true,
+  "counts": {
+    "steps": 5,
+    "checked": 5,
+    "channels": 8,
+    "bindings": 9,
+    "unbound": 0,
+    "resolved": 5,
+    "unresolved": 0,
+    "cycles": 0
+  },
+  "order": [
+    {
+      "stage": 0,
+      "steps": [
+        "fetch-order"
+      ]
+    },
+    {
+      "stage": 1,
+      "steps": [
+        "check-stock",
+        "price-order"
+      ]
+    },
+    {
+      "stage": 2,
+      "steps": [
+        "notify-backorder"
+      ]
+    },
+    {
+      "stage": 3,
+      "steps": [
+        "ship"
+      ]
+    }
+  ],
+  "unresolved": [],
+  "steps": [
+    {
+      "id": "check-stock",
+      "version": "1.4.2",
+      "stage": 1,
+      "consumes": [
+        {
+          "name": "order",
+          "type": "Order",
+          "optional": false,
+          "minVersion": "2.0.0",
+          "from": "fetch-order",
+          "resolved": true
+        },
+        {
+          "name": "catalogue",
+          "type": "Catalogue",
+          "optional": false,
+          "minVersion": null,
+          "from": "(provided)",
+          "resolved": true
+        }
+      ],
+      "produces": [
+        {
+          "name": "reservation",
+          "type": "Reservation",
+          "optional": false
+        },
+        {
+          "name": "backorder",
+          "type": "Backorder",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "fetch-order",
+      "version": "2.1.0",
+      "stage": 0,
+      "consumes": [
+        {
+          "name": "orderId",
+          "type": "string",
+          "optional": false,
+          "minVersion": null,
+          "from": "(provided)",
+          "resolved": true
+        }
+      ],
+      "produces": [
+        {
+          "name": "order",
+          "type": "Order",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "notify-backorder",
+      "version": "1.0.0",
+      "stage": 2,
+      "consumes": [
+        {
+          "name": "backorder",
+          "type": "Backorder",
+          "optional": true,
+          "minVersion": null,
+          "from": "check-stock",
+          "resolved": true
+        }
+      ],
+      "produces": [
+        {
+          "name": "notice",
+          "type": "Notice",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "price-order",
+      "version": "3.0.1",
+      "stage": 1,
+      "consumes": [
+        {
+          "name": "order",
+          "type": "Order",
+          "optional": false,
+          "minVersion": "2.1.0",
+          "from": "fetch-order",
+          "resolved": true
+        }
+      ],
+      "produces": [
+        {
+          "name": "invoice",
+          "type": "Invoice",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "ship",
+      "version": "1.2.0",
+      "stage": 3,
+      "consumes": [
+        {
+          "name": "reservation",
+          "type": "Reservation",
+          "optional": false,
+          "minVersion": null,
+          "from": "check-stock",
+          "resolved": true
+        },
+        {
+          "name": "invoice",
+          "type": "Invoice",
+          "optional": false,
+          "minVersion": null,
+          "from": "price-order",
+          "resolved": true
+        }
+      ],
+      "produces": [
+        {
+          "name": "shipment",
+          "type": "Shipment",
+          "optional": false
+        }
+      ]
+    }
+  ],
+  "exports": [
+    {
+      "name": "shipment",
+      "type": "Shipment",
+      "optional": false,
+      "minVersion": null,
+      "from": "ship",
+      "resolved": true
+    },
+    {
+      "name": "notice",
+      "type": "Notice",
+      "optional": false,
+      "minVersion": null,
+      "from": "notify-backorder",
+      "resolved": true
+    }
+  ],
+  "channels": [
+    {
+      "name": "backorder",
+      "type": "Backorder",
+      "optional": true,
+      "producer": "check-stock",
+      "producers": 1,
+      "consumers": [
+        "notify-backorder"
+      ]
+    },
+    {
+      "name": "catalogue",
+      "type": "Catalogue",
+      "optional": false,
+      "producer": "(provided)",
+      "producers": 1,
+      "consumers": [
+        "check-stock"
+      ]
+    },
+    {
+      "name": "invoice",
+      "type": "Invoice",
+      "optional": false,
+      "producer": "price-order",
+      "producers": 1,
+      "consumers": [
+        "ship"
+      ]
+    },
+    {
+      "name": "notice",
+      "type": "Notice",
+      "optional": false,
+      "producer": "notify-backorder",
+      "producers": 1,
+      "consumers": [
+        "(workflow)"
+      ]
+    },
+    {
+      "name": "order",
+      "type": "Order",
+      "optional": false,
+      "producer": "fetch-order",
+      "producers": 1,
+      "consumers": [
+        "check-stock",
+        "price-order"
+      ]
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "optional": false,
+      "producer": "(provided)",
+      "producers": 1,
+      "consumers": [
+        "fetch-order"
+      ]
+    },
+    {
+      "name": "reservation",
+      "type": "Reservation",
+      "optional": false,
+      "producer": "check-stock",
+      "producers": 1,
+      "consumers": [
+        "ship"
+      ]
+    },
+    {
+      "name": "shipment",
+      "type": "Shipment",
+      "optional": false,
+      "producer": "ship",
+      "producers": 1,
+      "consumers": [
+        "(workflow)"
+      ]
+    }
+  ]
+}
