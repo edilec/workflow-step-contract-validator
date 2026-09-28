@@ -28,10 +28,12 @@ both directions.
 ## Install
 
 ```sh
-npm install workflow-step-contract-validator
+npm install github:edilec/workflow-step-contract-validator
 ```
 
-Or run it without installing:
+This installs the public GitHub source; `workflow-step-contract-validator` is not published to npm.
+
+After installation, run:
 
 ```sh
 npx workflow-step-contract-validator --spec workflow.json
@@ -40,7 +42,7 @@ npx workflow-step-contract-validator --spec workflow.json
 ## Use
 
 ```sh
-workflow-step-contract-validator --spec examples/order-fulfilment.json
+npx workflow-step-contract-validator --spec examples/order-fulfilment.json
 ```
 
 ```
@@ -50,7 +52,7 @@ order: [0] fetch-order | [1] check-stock, price-order | [2] notify-backorder | [
 ```
 
 ```sh
-workflow-step-contract-validator --spec examples/broken-workflow.json
+npx workflow-step-contract-validator --spec examples/broken-workflow.json
 ```
 
 ```
@@ -70,7 +72,7 @@ Add `--json` for the machine-readable report, and `--contract FILE` to write the
 typed execution contract:
 
 ```sh
-workflow-step-contract-validator --spec workflow.json --json --contract build/execution-contract.json
+npx workflow-step-contract-validator --spec workflow.json --json --contract build/execution-contract.json
 ```
 
 Every option is accepted once, an unknown option is refused rather than ignored,
