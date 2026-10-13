@@ -89,10 +89,10 @@ test('every worked example in the README is the real output of the command besid
   // ellipsis and neither summary line, so a reader comparing their own run
   // against it would think the tool had changed under them.
   const text = await readFile(join(projectDirectory, 'README.md'), 'utf8')
-  const worked = [...text.matchAll(/```sh\n(workflow-step-contract-validator [^\n]*)\n```\n\n```\n([\s\S]*?)```\n/g)]
+  const worked = [...text.matchAll(/```sh\n(npx workflow-step-contract-validator [^\n]*)\n```\n\n```\n([\s\S]*?)```\n/g)]
   assert.equal(worked.length, 2, 'the README worked examples moved or lost their output block')
   for (const [, command, shown] of worked) {
-    const result = await runCli(command.split(' ').slice(1))
+    const result = await runCli(command.split(' ').slice(2))
     assert.equal(result.stdout, shown, `the README block for "${command}" is not what the command prints`)
   }
 })
